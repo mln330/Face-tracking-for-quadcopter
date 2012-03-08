@@ -16,6 +16,8 @@ using namespace System;
 using namespace System::IO::Ports;
 
 void menu();
+void connect(SerialPort^ arduino);
+
 /** Function Headers */
 void detectAndDisplay( Mat frame, IplImage* frame2, SerialPort^ arduino);
 
@@ -39,55 +41,19 @@ bool connection=false;
 
 int main(array<System::String ^> ^args)
 {
-	System::String^ portName;
-	System::String^ response;
-	SerialPort^ arduino;
-	
-	//take in port name from user
-	Console::WriteLine("Type in a port name and hit ENTER");
-	portName=Console::ReadLine();
-	
+	//TODO - menu will return a value corresponding to a mode to enter.
 	menu();
-
-	CvCapture* capture;
-	Mat frame;
-	IplImage* frame2;
 
 	//-- 1. Load the cascades
 	if( !face_cascade.load( face_cascade_name ) ){ printf("--(!)Error loading\n"); return -2; };
 	
-	// try opening port, give user the choice to keep trying to connect or just continue to face tracking
-	do {
-		try
-		{
-			arduino = gcnew SerialPort(portName, baudRate);
-			arduino->Open();
-			printf("Successfully connected to: %s\n",portName);
-			connection=true;
-			break;
-		}
-		catch (IO::IOException^ e  )
-		{
-			Console::WriteLine(e->GetType()->Name+": Port is not ready. Continue to face tracking? (yes/no)");
-		}
-		catch (ArgumentException^ e)
-		{
-			Console::WriteLine(e->GetType()->Name+": incorrect port name syntax, must start with COM/com. Continue to face tracking? (yes/no)");
-		}
-		response=Console::ReadLine();
-		if(System::String::Compare(response,"no")==0 ||System::String::Compare(response,"No")==0 || System::String::Compare(response,"NO")==0) {
-			Console::WriteLine("Type in a port name and hit ENTER");
-			portName=Console::ReadLine();
-		}
-		else {
-			connection=false;
-			break;
-		}
-	} while(1);
+	SerialPort^ arduino;
+	connect( arduino );
 
 	//-- 2. Read the video stream
+	CvCapture* capture;
 	capture = cvCaptureFromCAM( -1 );
-   if( capture )
+    if( capture != NULL )
 	{
 		//set the size of the video frame displayed to users to 80px by 60px. If you want to increase it, do it in multiples, like 160x120 or 320x240
 		cvSetCaptureProperty( capture, CV_CAP_PROP_FRAME_WIDTH, 320 );
@@ -95,6 +61,8 @@ int main(array<System::String ^> ^args)
 		//continuously call detectanddisplay function to detect face, display video, and send info to arduino
 		while( true )
 		{
+			Mat frame;
+			IplImage* frame2;
 			frame=frame2 = cvQueryFrame( capture );
 
 			//-- 3. Apply the classifier to the frame
@@ -156,6 +124,7 @@ void detectAndDisplay( Mat frame, IplImage* frame2, SerialPort^ arduino )
 	imshow( window_name, frame );
 }
 
+//TODO - return a value corresponding to the mode the user selected
 void menu()
 {
 	std::cout << "Select a face tracking control mode" << std::endl;
@@ -166,4 +135,42 @@ void menu()
 	std::cin >> mode;
 
 	std::cout << mode << endl;
+}
+
+void connect(SerialPort^ arduino)
+{
+	System::String^ portName;
+	System::String^ response;
+	//take in port name from user
+	Console::WriteLine("Type in a port name and hit ENTER");
+	portName=Console::ReadLine();
+
+	// try opening port, give user the choice to keep trying to connect or just continue to face tracking
+	do {
+		try
+		{
+			arduino = gcnew SerialPort(portName, baudRate);
+			arduino->Open();
+			printf("Successfully connected to: %s\n",portName);
+			connection=true;
+			break;
+		}
+		catch (IO::IOException^ e  )
+		{
+			Console::WriteLine(e->GetType()->Name+": Port is not ready. Continue to face tracking? (yes/no)");
+		}
+		catch (ArgumentException^ e)
+		{
+			Console::WriteLine(e->GetType()->Name+": incorrect port name syntax, must start with COM/com. Continue to face tracking? (yes/no)");
+		}
+		response=Console::ReadLine();
+		if(System::String::Compare(response,"no")==0 ||System::String::Compare(response,"No")==0 || System::String::Compare(response,"NO")==0) {
+			Console::WriteLine("Type in a port name and hit ENTER");
+			portName=Console::ReadLine();
+		}
+		else {
+			connection=false;
+			break;
+		}
+	} while(1);
 }
