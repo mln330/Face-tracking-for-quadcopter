@@ -14,9 +14,10 @@ int menu();
 
 /** Function Headers */
 void detectAndDisplay( IplImage *img);
+void detectAndDisplayEyes();
 
 /** Global variables */
-cv::String face_cascade_name = "haarcascade_frontalface_alt.xml";
+//cv::String face_cascade_name = "haarcascade_frontalface_alt.xml";
 //String eyes_cascade_name = "haarcascade_eye_tree_eyeglasses.xml";
 CascadeClassifier face_cascade;
 CvHaarClassifierCascade *facecascade;
@@ -36,7 +37,7 @@ int main( int argc, char** argv )
 	menucode=menu();
 
 	//-- 1. Load the cascades
-	if( !face_cascade.load( face_cascade_name ) ){ printf("--(!)Error loading\n"); return -2; };
+	//if( !face_cascade.load( face_cascade_name ) ){ printf("--(!)Error loading\n"); return -2; };
 	storage = cvCreateMemStorage( 0 );
 	char      *filenameFace = "haarcascade_frontalface_alt.xml";
 	char      *filenameEyes = "haarcascade_eye_tree_eyeglasses.xml";
@@ -94,37 +95,83 @@ void detectAndDisplay( IplImage *img)
             1,
             CV_HAAR_DO_CANNY_PRUNING,
             cvSize( 40, 40 ) );
-	CvRect *r;
+	CvRect *face;
     // for each face found, draw a red box 
 
-    for( i = 0 ; i < ( faces ? faces->total : 0 ) ; i++ ) {
-        r = ( CvRect* )cvGetSeqElem( faces, i );
-		Point center( r->x + r->width*0.5, r->y + r->height*0.5 );
-		cvEllipse( img, center, Size( r->width*0.5, r->height*0.5), 0, 0, 360, Scalar( 255, 0, 255 ), 4, 8, 0 );
-		centerx = r->x + r->width*0.5;
-		centery = r->y + r->height*0.5;
-		//-- Future code for detecting eyes
-		//IplImage *faceROI = frame_gray( faces[i] );
-		/*CvSeq *eyes = cvHaarDetectObjects(
-            faceROI,
-            facecascade,
-            storage,
-            1.3,
-            1,
-            CV_HAAR_DO_CANNY_PRUNING,
-            cvSize( 40, 40 ) );*/
+    //for( i = 0 ; i < ( faces ? faces->total : 0 ) ; i++ ) {
+        //r = ( CvRect* )cvGetSeqElem( faces, i );
+        face=( CvRect* )cvGetSeqElem( faces, 0 );
+		Point center( face->x + face->width*0.5, face->y + face->height*0.5 );
+		cvEllipse( img, center, Size( face->width*0.5, face->height*0.5), 0, 0, 360, Scalar( 255, 0, 255 ), 4, 8, 0 );
+		centerx = face->x + face->width*0.5;
+		centery = face->y + face->height*0.5;
 
 		//displays rectangle for face tracking instead of ellipse
         /*cvRectangle( img,
                      cvPoint( r->x, r->y ),
                      cvPoint( r->x + r->width, r->y + r->height ),
                      CV_RGB( 255, 0, 0 ), 1, 8, 0 );*/
-    }
- 
+        /* reset buffer for the next object detection */
+    	cvClearMemStorage(storage);
+    //}
+ 	/* Set the Region of Interest: estimate the eyes' position */
+    cvSetImageROI(
+        img,                    /* the source image */
+        cvRect(
+            face->x,            /* x = start from leftmost */
+            face->y + (face->height/5.5), /* y = a few pixels from the top */
+            face->width,        /* width = same width with the face */
+            face->height/3.0    /* height = 1/3 of face height */
+        )
+    );
+    
+    //find eyes and draw squares
+    detectAndDisplayEyes(img);
+    
     // display video 
     cvShowImage( "video", img );
 }
 
+/** @function detectAndDisplay */
+void detectAndDisplayEyes( IplImage *img)
+{
+	/* detect the eyes */
+    CvSeq *eyes = cvHaarDetectObjects(
+        img,            /* the source image, with the
+                           estimated location defined */
+        eyecascade,      /* the eye classifier */
+        storage,        /* memory buffer */
+        1.15, 3, 0,     /* tune for your app */
+        cvSize(25, 15)  /* minimum detection scale */
+    );
+ 	int i;
+    
+    /* draw a rectangle for each detected eye */
+    for( i = 0; i < (eyes ? eyes->total : 0); i++ ) {
+        /* get one eye */
+        CvRect *eye = (CvRect*)cvGetSeqElem(eyes, i);
+       
+        /* draw a red rectangle */
+        cvRectangle(
+            img,
+            cvPoint(eye->x, eye->y),
+            cvPoint(eye->x + eye->width, eye->y + eye->height),
+            CV_RGB(255, 0, 0),
+            1, 8, 0
+        );
+    }
+    int dist=0;
+    if(eyes) {
+    	if(eyes->total>=2) {
+    		CvRect *eye1 = (CvRect*)cvGetSeqElem(eyes, 0);
+    		CvRect *eye2 = (CvRect*)cvGetSeqElem(eyes, 1);
+    		dist=eye2->x-eye1->x;
+    	}
+    }
+    printf("Distance between eyes: %i\n",dist);
+    /* reset region of interest */
+    cvResetImageROI(img);
+}
 
 
 //TODO - return a value corresponding to the mode the user selected
