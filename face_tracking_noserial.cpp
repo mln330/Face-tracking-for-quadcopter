@@ -165,10 +165,12 @@ void detectAndDisplayEyes( IplImage *img)
     	if(eyes->total>=2) {
     		CvRect *eye1 = (CvRect*)cvGetSeqElem(eyes, 0);
     		CvRect *eye2 = (CvRect*)cvGetSeqElem(eyes, 1);
-    		dist=eye2->x-eye1->x;
+    		dist=(eye2->x+eye2->width*0.5)-(eye1->x+eye1->width*0.5);
     	}
     }
-    printf("Distance between eyes: %i\n",dist);
+    if(dist<0)
+    	dist=-dist;
+    printf("Distance between eyes: %i pixels\n",dist);
     /* reset region of interest */
     cvResetImageROI(img);
 }
